@@ -3,13 +3,11 @@ __author__ = 'Peter'
 import time
 import random
 import pygame
-import string
 import math
+import Genome as genome
 
 HEIGHT,WIDTH = 600,800
 SCREEN = WIDTH, HEIGHT
-SEED = 9283
-random.seed(SEED)
 class Colours:
     White = [255,255,255]
     Red = [255,0,0]
@@ -20,35 +18,11 @@ class Colours:
 class Config:
     MUTATE_CHANCE = 2/100
 
-class Gene:
-    def __init__(self, name):
-        self.name = name
-        self.priority = 0 # defines dominance over another gene
-        self.value = "".join(random.SystemRandom().choice(string.ascii_uppercase +
-                                                          string.digits +
-                                                          string.ascii_lowercase) for _ in range (16))
-        print("Value: {}".format(self.value))
-
-def GetAcceleration(self, mass, force):
-    return force/mass
-
 class GeneCategories:
     Size = True
     Speed = True
     Colour = True
     Energy = False
-
-class Geneome:
-    def __init__(self):
-        self.genes = []
-        self.spawn_genes()
-
-    def spawn_genes(self):
-        colourGene = Gene("Colour")
-        sizeGene = Gene("Size")
-        topSpeedGene = Gene("Speed")
-
-
 
 class Instruction:
     def __init__(self,cost,callback):
@@ -63,9 +37,9 @@ class Vector:
         self.y = 400
 
 class Bug(pygame.sprite.Sprite):
-    def __init__(self,id):
+    def __init__(self,id,genome):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((10,10))
+        self.image = pygame.Surface((4,4))
         self.image.fill(Colours.White)
         # self.rect = self.image.get_rect()
         self.instructionList = []
@@ -73,6 +47,7 @@ class Bug(pygame.sprite.Sprite):
         self.maxSpeed = 60
         self.dead = False
         self.id = id
+        self.genome = genome
         self.vector = Vector()
 
     def action(self):
@@ -87,6 +62,36 @@ class Bug(pygame.sprite.Sprite):
         self.dx = 0
         self.dy = 0
 
+    def build(self):
+        genes = self.genome.genes
+        genome = self.genome.genes
+        colourRaw = self.genome.get_trait("colour")
+        if colourRaw == False:
+            print("ERROR assigning colour to bug")
+        colourRed = int(colourRaw[0:2],16)
+        colourGreen = int(colourRaw[2:4],16)
+        colourBlue = int(colourRaw[4:6],16)
+        self.colour = [colourRed, colourGreen, colourBlue]
+
+        size = self.genome.get_trait("size")
+        if size == False:
+            print("ERROR assigning size to bug")
+        width = int(size[0:1],16)
+        if width < 9:
+            width = 9
+        height = int(size[1:2],16)
+        if height < 9:
+            height = 9
+        self.image = pygame.Surface((width,height))
+        self.image.fill(Colours.White)
+        self.size = [width, height]
+        # print("Size: {}, Colour:{}".format(self.size, self.colour))
+        self.set_reaction_speed(self.genome.get_trait("reactionSpeed"))
+
+    def set_reaction_speed(self,speedRaw):
+        if speedRaw != False:
+            self.reactionSpeed = int(speedRaw,16)
+
     def input(self, dx, dy):
         if self.dead:
             return
@@ -94,18 +99,16 @@ class Bug(pygame.sprite.Sprite):
         angle = math.atan2(dy,dx)
         angleD = (angle*180)/math.pi
         # print("Bug ID: {} Angle cursor to mouse: {}".format(self.id, angleD))
-        if distance < 50:
-            # print("input called,bug:{} distance:{}, angle:{}".format(self.id,distance,(angle*180)/math.pi))
-            # angle += 180
-            # angle = angle%360
+        reactionSpeedMultiplier = self.reactionSpeed/255
+        if distance < (50*reactionSpeedMultiplier):
             # print("angle:{}".format(angle))
             currentSpeed = math.sqrt(self.vector.dx**2 + self.vector.dy**2)
             maxSpeed = self.maxSpeed
             speedToAdd = maxSpeed - currentSpeed
-
             # topSpeed = 10 + 10*round((50-distance)/50)
             # 0 if distance = 50, 1 if distance = 0
             nextSpeed = currentSpeed + speedToAdd*abs((distance-50)/50)
+            nextSpeed = nextSpeed * reactionSpeedMultiplier
             dx = -nextSpeed * math.cos(angle)
             dy = -nextSpeed * math.sin(angle)
             self.vector.dx = dx
@@ -117,17 +120,21 @@ class Bug(pygame.sprite.Sprite):
         return self.image.get_rect(topleft=(self.vector.x,self.vector.y))
 
     def get_surface(self):
-        colour = Colours.Red
+        colour = self.colour
         if self.dead:
             colour = Colours.Black
-        pygame.draw.circle(self.image,colour,[5,5],5,0)
-        # return self
-        surface = pygame.Surface((10,10),32)
-        # surface.set_alpha(0)
-        # surface.fill(Colours.White)
-        # #surface.fill(Colours.Red)
-        # pygame.draw.circle(surface,Colours.Red,[5,5],5,0)
-        # return surface
+        # pygame.draw.circle(self.image,colour,self.size,5,0)
+        pygame.draw.ellipse(self.image, colour,(0, 0, self.size[0], self.size[1]), 0)
+        pygame.draw.ellipse(self.image, Colours.Black,(0, 0, self.size[0], self.size[1]), 1)
+
+class BugGenome:
+    def __init__(self):
+        self.genome = genome.Genome()
+        self.genome.add_trait("colour",8)
+        self.genome.add_trait("size",20)
+        self.genome.add_trait("reactionSpeed",2)
+        self.genome.add_trait("sprintSpeed",2)
+        self.genome.add_trait("sprintDuration",2)
 
 class Population:
     def __init__(self):
@@ -137,9 +144,11 @@ class Population:
 
     def spawn(self, bugs = 22):
         for x in range(1,bugs):
-            newBug = Bug(x)
+            newBugGenes = BugGenome()
+            newBug = Bug(x,newBugGenes.genome)
             newBug.vector.x = random.randint(round(WIDTH*0.10),round(WIDTH*0.90))
             newBug.vector.y = random.randint(round(HEIGHT*0.10),round(HEIGHT*0.90))
+            newBug.build()
             self.spriteGroup.add(newBug)
             self.bugList.append(newBug)
 
@@ -198,26 +207,14 @@ def run_program():
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mousePos = pygame.mouse.get_pos()
-                # for s in population.bugList:
-                    # print("ID:{},CP:{}".format(s.id,s.rect.collidepoint(mousePos)))
                 clicked = [s for s in population.bugList if s.rect.collidepoint(mousePos)]
                 for bug in clicked:
                     bug.clicked()
-                # print("clicked: {}".format(clicked))
+                    population.bugList.remove(bug)
 
         if time.time() > nextLogic:
             nextLogic += logicPeriod
             mousePos = pygame.mouse.get_pos()
-            # dx = mousePos[1] - round(BUG.vector.x)
-            # dy = mousePos[0] - round(BUG.vector.y)
-            # try:
-            #     dxdy = dy/dx
-            # except:
-            #     dxdy = 400
-            # print("x:{} y:{}, bug x:{},y:{}".format(mousePos[0],mousePos[1],BUG.vector.x,BUG.vector.y))
-            # distance = math.sqrt( dx**2 + dy**2)
-            # angle = math.atan(dxdy)
-            # print("Distance: {}, angle: {}".format(distance,angle))
 
             population.input(mousePos)
             for bug in population.bugList:
@@ -233,7 +230,8 @@ def run_program():
                     bug.vector.dy = -bug.vector.dy
                 bug.vector.x += bug.vector.dx*logicPeriod
                 bug.vector.y += bug.vector.dy*logicPeriod
-
+            if len(population.bugList)<5:
+                mainScreen.fill(Colours.Green)
 
 
 
@@ -247,13 +245,6 @@ def run_program():
             mainScreen.fill(Colours.White)
             sprites = population.get_positions_and_surfaces()
             sprites.draw(mainScreen)
-            # drawingObjects = population.get_positions_and_surfaces()
-            # surface = BUG.get_surface()
-            # print("bug position x:{} y:{}".format(round(BUG.vector.x),round(BUG.vector.y)))
-            # for drawingObject in drawingObjects:
-                # print(drawingObject)
-                # mainScreen.blit(drawingObject[1],drawingObject[0])
-            # pygame.draw.rect(mainScreen,Colours.Green,[round(BUG.vector.y),round(BUG.vector.x),30,30],0)
             pygame.display.flip()
 
 
