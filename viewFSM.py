@@ -2,7 +2,9 @@ __author__ = 'Peter'
 
 from eventsConfig import ViewEvents as GameEvents
 from eventsConfig import ViewStates as ViewScreen
-
+ ## this is the view controller. It has a state machine to decide what to do next.
+ ## This is respnsible for calling the methods to generate a view for the user.
+ ## 
 renderObject = None
 # class to control what is being shown in the view.
 class CurrentState:
@@ -73,4 +75,4 @@ class GameOver(State):
     def __init__(self):
         super("GameOver")
 
-CurrentState = CurrentState()
+# CurrentState = CurrentState()

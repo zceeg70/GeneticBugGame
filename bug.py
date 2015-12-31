@@ -21,6 +21,7 @@ class Bug(Entity):
         super(Bug, self).__init__()
         self.id = id
         self.genome = genome
+        self.build()
 
     def action(self):
         if self.dead:
@@ -85,10 +86,6 @@ class Bug(Entity):
             # cursor distance, angle -> dx dy
             # food distance, angle -> dx dy
 
-    # @property
-    # def rect(self):
-    #     return self.image.get_rect(topleft=(self.vector.x,self.vector.y))
-
     def render(self):
         colour = self.colour
         if not self.alive:
@@ -108,6 +105,10 @@ class BugGenome:
         self.genome.add_trait("reactionSpeed",2)
         self.genome.add_trait("sprintSpeed",2)
         self.genome.add_trait("sprintDuration",2)
+
+    @property
+    def genes(self):
+        return  self.genome.genes
 
 if __name__ == "__main__":
     # bugGen = BugGenerator()
