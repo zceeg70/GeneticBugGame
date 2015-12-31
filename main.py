@@ -58,7 +58,7 @@ class Population:
 
 class Rendering:
     def __init__(self):
-        self.levelScreen = pygame.Surface
+        self.levelScreen = pygame.Surface()
 
 # BUG = Bug()
 def start_program_loop():
